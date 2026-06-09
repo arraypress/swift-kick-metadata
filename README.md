@@ -1,31 +1,31 @@
 # Swift Kick Metadata
 
-A Swift library for fetching metadata from Kick clips. No API key, developer account, or authentication required — uses Kick's public clip API.
+Fetch metadata for Kick clips without authentication. `KickMetadata` queries Kick's public clip API and returns title, channel, creator, video URL, duration, engagement counts, category, stream context, and thumbnail. No API key, developer account, or login required.
 
 ## Features
 
-- 🎯 **Simple API** — fetch clip metadata with a single async call
-- 📊 **Rich metadata** — title, channel, creator, duration, views, likes, category, date
-- 🎬 **Video URL** — HLS or MP4 link ready for playback or export
-- 🖼️ **Thumbnail URL** — clip thumbnail image
-- 🔗 **Stream context** — livestream ID, VOD ID, and VOD offset to link back to the full recording
-- 🔒 **No API key required** — uses Kick's public API
-- 🍎 **Cross-platform** — macOS, iOS, tvOS, watchOS
-- ⚡ **Async/await** native — built for modern Swift concurrency
-- 🛡️ **Typed error handling** — specific errors for every failure case
-- 🔗 **Flexible input** — supports all Kick clip URL formats and raw clip IDs
+- 🎯 **No authentication** — uses Kick's public clip API; no API key or login
+- 🔗 **Flexible input** — accepts `/clips/`, `?clip=` query-string URLs, or a raw clip ID
+- 🎬 **Direct video URL** — exposes `videoFileUrl` plus an `isHLS` flag (HLS vs MP4)
+- 📺 **Channel & creator** — channel name, username, ids, profile pictures, and the clip's creator
+- 📊 **Engagement metrics** — view and like counts with human-readable formatted variants
+- ⏱️ **Duration & timing** — duration plus `createdAt` / `startedAt` dates and formatted helpers
+- 🗂️ **Category context** — category, slug, and parent category
+- 🔁 **VOD linkback** — `vodUrl` and `vodStartsAt` to jump back to the source stream at the clip offset
+- 🔞 **Maturity flags** — `isMature`, `ageLimit`, and `privacy`
+- 🔗 **Derived URLs** — computed `url` and `channelUrl`
+- 🧱 **Typed errors** — descriptive `KickMetadataError` cases
+- ⚡ **Async/await** — a single `async throws` entry point with zero dependencies
 
 ## Requirements
 
 - macOS 13.0+ / iOS 16.0+ / tvOS 16.0+ / watchOS 9.0+
 - Swift 6.0+
-- Xcode 16.0+
+- Xcode 26.0+
 
 ## Installation
 
 ### Swift Package Manager
-
-Add the following to your `Package.swift`:
 
 ```swift
 dependencies: [
@@ -33,14 +33,9 @@ dependencies: [
 ]
 ```
 
-Or in Xcode:
-1. File → Add Package Dependencies
-2. Enter the repository URL
-3. Choose version requirements
-
 ## Usage
 
-### Fetch Clip Metadata
+### Fetching clip metadata
 
 ```swift
 import KickMetadata
@@ -49,169 +44,68 @@ let clip = try await KickMetadata.fetch("https://kick.com/xqc/clips/clip_01GYXVB
 
 print(clip.title)
 print("\(clip.channel) — clipped by \(clip.creatorName ?? "Unknown")")
-print("Duration: \(clip.formattedDuration)")
 print("Views: \(clip.formattedViewCount ?? "N/A")")
-print("Likes: \(clip.formattedLikeCount ?? "N/A")")
-print("Category: \(clip.category ?? "N/A")")
-print("Date: \(clip.formattedDate ?? "N/A")")
-print("Mature: \(clip.isMature)")
+print("Duration: \(clip.formattedDuration)")
 ```
 
-### Video URL
-
-Kick clips are typically served as HLS playlists (`.m3u8`). `AVPlayer` handles these natively for playback. To download as an MP4 file, use `AVAssetExportSession`:
+### Downloading the clip
 
 ```swift
-import AVFoundation
-
-let clip = try await KickMetadata.fetch("https://kick.com/channel/clips/clip_ABC123")
+let clip = try await KickMetadata.fetch("clip_01GYXVB5Y8PWAPWCWMSBCFB05X")
 
 if let url = clip.videoFileUrl {
-    if clip.isHLS {
-        // Export HLS to MP4 for download/processing
-        let asset = AVURLAsset(url: url)
-        let export = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetHighestQuality)!
-        export.outputURL = destinationUrl
-        export.outputFileType = .mp4
-        await export.export()
-    } else {
-        // Direct MP4 — download directly
-        let (data, _) = try await URLSession.shared.data(from: url)
-    }
+    print("Video: \(url)")
+    print("Format: \(clip.isHLS ? "HLS" : "MP4")")
 }
 ```
 
-### Stream Context
-
-Clips include metadata linking back to the original stream recording:
+### Linking back to the VOD
 
 ```swift
-let clip = try await KickMetadata.fetch("https://kick.com/channel/clips/clip_ABC123")
+let clip = try await KickMetadata.fetch(url)
 
-// Which stream was this clipped from?
-print("Livestream ID: \(clip.livestreamId ?? "N/A")")
-
-// Link to the full VOD
-if let vodUrl = clip.vodUrl {
-    print("Full VOD: \(vodUrl)")
-}
-
-// Exact offset into the VOD
-if let offset = clip.vodStartsAt {
-    print("Starts at: \(offset) seconds into the VOD")
-}
-
-// When the clipped moment actually happened in the stream
-if let startedAt = clip.startedAt {
-    print("Stream time: \(startedAt)")
+if let vodUrl = clip.vodUrl, let offset = clip.vodStartsAt {
+    print("VOD: \(vodUrl) at \(offset)s")
 }
 ```
 
-### URL Formats
-
-All common Kick clip URL formats are supported:
-
-```swift
-// Clips path
-let clip = try await KickMetadata.fetch("https://kick.com/channel/clips/clip_ABC123")
-
-// Query parameter
-let clip = try await KickMetadata.fetch("https://kick.com/channel?clip=clip_ABC123")
-
-// With other query params
-let clip = try await KickMetadata.fetch("https://kick.com/channel?other=x&clip=clip_ABC123")
-
-// Raw clip ID
-let clip = try await KickMetadata.fetch("clip_01GYXVB5Y8PWAPWCWMSBCFB05X")
-```
-
-### Error Handling
+### Error handling
 
 ```swift
 do {
     let clip = try await KickMetadata.fetch(url)
     print(clip.title)
-} catch KickMetadataError.clipNotFound {
-    print("Clip doesn't exist or was deleted")
-} catch KickMetadataError.rateLimited {
-    print("Too many requests — try again later")
-} catch KickMetadataError.invalidClipId {
-    print("Couldn't extract a clip ID from the URL")
-} catch {
-    print("Error: \(error.localizedDescription)")
+} catch let error as KickMetadataError {
+    switch error {
+    case .invalidUrl, .invalidClipId:
+        print("Could not parse the input")
+    case .clipNotFound:
+        print("Clip not found")
+    case .rateLimited:
+        print("Rate limited — try again later")
+    case .networkError(let message), .parsingError(let message):
+        print("Failed: \(message)")
+    }
 }
 ```
 
-## Models
-
-### `ClipMetadata`
-
-The main result struct containing all clip data.
-
-| Property | Type | Description |
-|----------|------|-------------|
-| `id` | `String` | Clip ID (e.g., `"clip_ABC123"`) |
-| `title` | `String` | Clip title |
-| `channel` | `String` | Channel slug |
-| `channelId` | `String?` | Channel's numeric ID |
-| `channelUsername` | `String?` | Channel owner's display username |
-| `channelProfilePicture` | `String?` | Channel owner's profile picture URL |
-| `creatorName` | `String?` | Who created/clipped this |
-| `creatorId` | `String?` | Creator's numeric ID |
-| `creatorProfilePicture` | `String?` | Creator's profile picture URL |
-| `videoUrl` | `String?` | Direct video URL (MP4 or M3U8) |
-| `videoFileUrl` | `URL?` | Typed video URL |
-| `thumbnailUrl` | `String?` | Thumbnail image URL |
-| `duration` | `Double` | Duration in seconds |
-| `formattedDuration` | `String` | Duration as `"M:SS"` or `"H:MM:SS"` |
-| `category` | `String?` | Game/category name |
-| `categorySlug` | `String?` | Category slug |
-| `parentCategory` | `String?` | Parent category (e.g., `"gambling"`) |
-| `createdAt` | `Date?` | When the clip was created |
-| `formattedDate` | `String?` | Readable date string |
-| `startedAt` | `Date?` | When the clipped moment started in the stream |
-| `viewCount` | `Int?` | Number of views |
-| `formattedViewCount` | `String?` | Views with grouping separators |
-| `likeCount` | `Int?` | Number of likes |
-| `formattedLikeCount` | `String?` | Likes with grouping separators |
-| `livestreamId` | `String?` | ID of the stream this was clipped from |
-| `vodId` | `String?` | VOD ID for the full stream recording |
-| `vodStartsAt` | `Int?` | Offset in seconds into the VOD |
-| `vodUrl` | `String?` | Full VOD URL on Kick |
-| `isMature` | `Bool` | Whether from 18+ stream |
-| `ageLimit` | `Int` | 18 if mature, 0 otherwise |
-| `privacy` | `String?` | Privacy setting (e.g., `"CLIP_PRIVACY_PUBLIC"`) |
-| `url` | `String` | Full clip URL on Kick |
-| `channelUrl` | `String` | Channel profile URL |
-| `isHLS` | `Bool` | Whether video is M3U8 vs MP4 |
-
 ## How It Works
 
-The library makes a single API call:
+`KickMetadata.fetch` extracts the clip ID from the input (URL or raw ID), then calls Kick's public clip API and maps the response into a fully-populated `ClipMetadata` value.
 
-1. **Extract clip ID** — from the URL path (`/clips/clip_ABC`) or query parameter (`?clip=clip_ABC`)
-2. **Call Kick's clip API** — `GET https://kick.com/api/v2/clips/{clip_id}/play`
-3. **Parse the response** — the clip object is nested under a `"clip"` key and contains all metadata including video URL, channel/creator info, category, engagement counts, and stream context
+## Models
 
-No authentication, no tokens, no session setup. One request, one response.
+| Model | Description |
+|-------|-------------|
+| `ClipMetadata` | Title, channel, creator, video/thumbnail URLs, duration, view/like counts, category, stream context, dates, maturity flags, and computed `url` / `channelUrl` / `vodUrl` / `videoFileUrl` / `formatted*` / `isHLS` helpers |
+| `KickMetadataError` | Typed errors (`invalidUrl`, `invalidClipId`, `clipNotFound`, `rateLimited`, `networkError`, `parsingError`) with `LocalizedError` descriptions |
 
-## Video Format Note
+## Use Cases
 
-Kick clips are served as HLS playlists (`.m3u8`), not direct MP4 files. This means:
-
-- **Playback**: `AVPlayer` handles M3U8 natively — just pass the URL
-- **Download**: Use `AVAssetExportSession` to export as MP4
-- **Transcription**: `AVAsset` (used by `SFSpeechRecognizer`) accepts M3U8 URLs directly
-- **OCR**: `VideoProcessor` (used by Vision framework) accepts `AVAsset` which handles M3U8
-
-Apple's AV frameworks handle HLS transparently, so in practice the format rarely matters.
-
-## Limitations
-
-- **Clips only** — This library handles clips, not VODs or live streams. VODs require M3U8 playlist handling and clips are the shareable unit on Kick.
-- **HLS format** — Video URLs are M3U8 playlists, not direct MP4 files. See the video format note above.
-- **Rate limiting** — Kick may rate-limit requests from IPs making too many calls.
-- **API stability** — This is an unofficial API endpoint that Kick may change at any time. Updates will be provided as needed.
+- Building download tools for Kick clips
+- Embedding clip previews with creator and view-count context
+- Aggregating and archiving clip metadata
+- Linking clips back to their source VOD at the right offset
 
 ## Testing
 
@@ -219,17 +113,7 @@ Apple's AV frameworks handle HLS transparently, so in practice the format rarely
 swift test
 ```
 
-The test suite includes unit tests for clip ID extraction, URL format handling, formatting, computed properties, and stream context fields, plus integration tests that hit Kick's live API and verify all fields are populated.
-
-## Contributing
-
-Contributions are welcome! Please:
-
-1. Fork the repository
-2. Create a feature branch
-3. Add tests for new functionality
-4. Ensure all tests pass
-5. Submit a pull request
+Tests cover clip-ID extraction, URL parsing, and model decoding.
 
 ## License
 
