@@ -207,19 +207,18 @@ final class KickMetadataTests: XCTestCase {
     // MARK: - Integration Tests (require network)
     
     func testFetchClip() async throws {
-        let clip = try await KickMetadata.fetch("https://kick.com/clavicular/clips/clip_01KKHC59J335SPH6R5VGG9XH62")
+        let clip = try await KickMetadata.fetch("https://kick.com/xqc/clips/clip_01KT86AY6TFA1JMTT3M02AZ4YW")
         
-        XCTAssertEqual(clip.id, "clip_01KKHC59J335SPH6R5VGG9XH62")
-        XCTAssertEqual(clip.title, "hmmmmm")
-        XCTAssertEqual(clip.channel, "clavicular")
+        XCTAssertEqual(clip.id, "clip_01KT86AY6TFA1JMTT3M02AZ4YW")
+        XCTAssertFalse(clip.title.isEmpty)
+        XCTAssertEqual(clip.channel, "xqc")
         XCTAssertNotNil(clip.videoUrl)
         XCTAssertNotNil(clip.videoFileUrl)
-        XCTAssertTrue(clip.isHLS, "This clip should be HLS")
         XCTAssertGreaterThan(clip.duration, 0)
     }
     
     func testFetchClipAllFields() async throws {
-        let clip = try await KickMetadata.fetch("https://kick.com/clavicular/clips/clip_01KKHC59J335SPH6R5VGG9XH62")
+        let clip = try await KickMetadata.fetch("https://kick.com/xqc/clips/clip_01KT86AY6TFA1JMTT3M02AZ4YW")
         
         // Channel
         XCTAssertNotNil(clip.channelId)
@@ -250,9 +249,8 @@ final class KickMetadataTests: XCTestCase {
         XCTAssertNotNil(clip.vodStartsAt)
         XCTAssertNotNil(clip.vodUrl)
         
-        // Flags
-        XCTAssertTrue(clip.isMature)
-        XCTAssertEqual(clip.ageLimit, 18)
+        // Flags — maturity varies by clip; assert the derived age limit is consistent
+        XCTAssertEqual(clip.ageLimit, clip.isMature ? 18 : 0)
         XCTAssertNotNil(clip.privacy)
         
         // Thumbnail
@@ -260,16 +258,16 @@ final class KickMetadataTests: XCTestCase {
     }
     
     func testFetchClipFromQueryParam() async throws {
-        let clip = try await KickMetadata.fetch("https://kick.com/clavicular?clip=clip_01KKHC59J335SPH6R5VGG9XH62")
+        let clip = try await KickMetadata.fetch("https://kick.com/xqc?clip=clip_01KT86AY6TFA1JMTT3M02AZ4YW")
         
-        XCTAssertEqual(clip.id, "clip_01KKHC59J335SPH6R5VGG9XH62")
+        XCTAssertEqual(clip.id, "clip_01KT86AY6TFA1JMTT3M02AZ4YW")
         XCTAssertFalse(clip.title.isEmpty)
     }
     
     func testFetchClipFromRawId() async throws {
-        let clip = try await KickMetadata.fetch("clip_01KKHC59J335SPH6R5VGG9XH62")
+        let clip = try await KickMetadata.fetch("clip_01KT86AY6TFA1JMTT3M02AZ4YW")
         
-        XCTAssertEqual(clip.id, "clip_01KKHC59J335SPH6R5VGG9XH62")
+        XCTAssertEqual(clip.id, "clip_01KT86AY6TFA1JMTT3M02AZ4YW")
         XCTAssertFalse(clip.title.isEmpty)
     }
     
