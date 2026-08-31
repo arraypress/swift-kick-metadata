@@ -75,11 +75,6 @@ public struct ClipMetadata: Sendable {
     /// For playback, `AVPlayer` handles M3U8 URLs natively.
     public let videoUrl: String?
 
-    /// The video URL as a typed `URL`.
-    public var videoFileUrl: URL? {
-        videoUrl.flatMap { URL(string: $0) }
-    }
-
     /// The thumbnail image URL.
     public let thumbnailUrl: String?
 
@@ -142,73 +137,4 @@ public struct ClipMetadata: Sendable {
     /// The clip's privacy setting (e.g., `"CLIP_PRIVACY_PUBLIC"`).
     public let privacy: String?
 
-    // MARK: - Computed Properties
-
-    /// The full clip URL on Kick.
-    public var url: String {
-        "https://kick.com/\(channel)/clips/\(id)"
-    }
-
-    /// The channel's profile URL on Kick.
-    public var channelUrl: String {
-        "https://kick.com/\(channel)"
-    }
-
-    /// The full VOD URL, if available.
-    ///
-    /// Links to the full stream recording this clip was taken from.
-    public var vodUrl: String? {
-        guard let vodId = vodId, !channel.isEmpty else { return nil }
-        return "https://kick.com/\(channel)/videos/\(vodId)"
-    }
-
-    /// The duration formatted as `"M:SS"` or `"H:MM:SS"`.
-    public var formattedDuration: String {
-        let total = Int(duration)
-        let h = total / 3600
-        let m = (total % 3600) / 60
-        let s = total % 60
-        return h > 0
-            ? String(format: "%d:%02d:%02d", h, m, s)
-            : String(format: "%d:%02d", m, s)
-    }
-
-    /// The view count formatted with locale-appropriate grouping separators.
-    public var formattedViewCount: String? {
-        guard let count = viewCount else { return nil }
-        return Self.formatNumber(count)
-    }
-
-    /// The like count formatted with locale-appropriate grouping separators.
-    public var formattedLikeCount: String? {
-        guard let count = likeCount else { return nil }
-        return Self.formatNumber(count)
-    }
-
-    /// The creation date formatted as a readable string.
-    public var formattedDate: String? {
-        guard let date = createdAt else { return nil }
-        return date.formatted(date: .abbreviated, time: .shortened)
-    }
-
-    /// The age limit (18 if mature, 0 otherwise).
-    public var ageLimit: Int {
-        isMature ? 18 : 0
-    }
-
-    /// Whether the video URL points to an M3U8 playlist (vs direct MP4).
-    ///
-    /// When `true`, use `AVPlayer` for playback or `AVAssetExportSession`
-    /// to download as MP4.
-    public var isHLS: Bool {
-        videoUrl?.hasSuffix(".m3u8") == true
-    }
-
-    /// Formats a number with locale-appropriate grouping separators.
-    private static func formatNumber(_ value: Int) -> String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .decimal
-        return formatter.string(from: NSNumber(value: value)) ?? "\(value)"
-    }
-    
 }
